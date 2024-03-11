@@ -47,6 +47,7 @@ resource "google_gke_hub_feature" "feature" {
   depends_on = [
     google_project_service.mesh_api,
     google_privateca_ca_pool_iam_member.workload_cert_member,
+    google_privateca_certificate_template_iam_member.workload_cert_template_user,
     kubernetes_config_map.asm-options
   ]
 }

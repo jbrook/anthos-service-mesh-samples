@@ -13,6 +13,13 @@
 # limitations under the License.
 
 # [START servicemesh_cas_tf_create_configmap]
+data "google_client_config" "default" {}
+
+locals {
+  ca_pool_id       = google_privateca_ca_pool.sub_pool.id
+  cert_template_id = google_privateca_certificate_template.workload_cert_template.id
+}
+
 provider "kubernetes" {
   host                   = "https://${google_container_cluster.cluster.endpoint}"
   token                  = data.google_client_config.default.access_token
@@ -34,7 +41,7 @@ resource "kubernetes_config_map" "asm-options" {
   }
 
   data = {
-    ASM_OPTS = "CA=PRIVATECA;CAAddr=projects/${data.google_project.project.name}/locations/${var.region}/caPools/${google_privateca_ca_pool.sub_pool.name}"
+    ASM_OPTS = "CA=PRIVATECA;CAAddr=${local.ca_pool_id}:${local.cert_template_id}"
   }
 }
 # [END servicemesh_cas_tf_create_configmap]

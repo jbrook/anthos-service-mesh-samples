@@ -26,9 +26,15 @@ resource "google_privateca_ca_pool_iam_member" "workload_cert_member" {
   ca_pool = google_privateca_ca_pool.sub_pool.id
 
   # FIXME: It should really be the **Fleet** project ID
-  - could be different from the project(s) used for clusters
+  # - could be different from the project(s) used for clusters
   member  = "group:${data.google_project.project.name}.svc.id.goog:/allAuthenticatedUsers/"
 
   role = each.value
+}
+
+resource "google_privateca_certificate_template_iam_member" "workload_cert_template_user" {
+  certificate_template = google_privateca_certificate_template.workload_cert_template.id
+  role = "roles/privateca.templateUser"
+  member = "group:${data.google_project.project.name}.svc.id.goog:/allAuthenticatedUsers/"
 }
 # [END servicemesh_cas_tf_cert_roles]

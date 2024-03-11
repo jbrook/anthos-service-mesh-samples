@@ -15,6 +15,11 @@
 provider "google" {}
 provider "tls" {}
 
+locals {
+  algorithm = "RSA_PKCS1_4096_SHA256"
+  lifetime  = "999999999s" # A very long time
+}
+
 resource "google_project_service" "privateca_api" {
   service            = "privateca.googleapis.com"
   disable_on_destroy = false
@@ -90,7 +95,7 @@ resource "google_privateca_ca_pool" "sub_pool" {
       allow_subject_passthrough = false
       allow_subject_alt_names_passthrough = true
       cel_expression {
-        expression = "subject_alt_names.all(san, san.type == URI && san.value.startsWith(\"spiffe://PROJECT_ID.svc.id.goog/ns/\") )"
+        expression = "subject_alt_names.all(san, san.type == URI && san.value.startsWith(\"spiffe://${data.google_project.project.name}.svc.id.goog/ns/\") )"
       }
     }
   }
@@ -130,7 +135,7 @@ resource "google_privateca_certificate_authority" "root_ca" {
     }
   }
   key_spec {
-    algorithm = "RSA_PKCS1_4096_SHA256"
+    algorithm = local.algorithm
   }
 
   // Disable CA deletion related safe checks for easier cleanup.
@@ -187,14 +192,44 @@ resource "google_privateca_certificate_authority" "sub_ca" {
       }
     }
   }
-  lifetime = "86400s"
+  lifetime = local.lifetime
   key_spec {
-    algorithm = "RSA_PKCS1_4096_SHA256"
+    algorithm = local.algorithm
   }
   type = "SUBORDINATE"
 
-    // Disable CA deletion related safe checks for easier cleanup.
+  // Disable CA deletion related safe checks for easier cleanup.
   deletion_protection                    = false
   skip_grace_period                      = true
   ignore_active_certificates_on_deletion = true
+}
+
+resource "google_privateca_certificate_template" "workload_cert_template" {
+  location    = var.region
+  name        = "workload-cert-template"
+  description = "Certificate template for workload/leaf certificates"
+
+  identity_constraints {
+    allow_subject_passthrough = false
+    allow_subject_alt_names_passthrough = true
+    cel_expression {
+      expression = "subject_alt_names.all(san, san.type == URI && san.value.startsWith(\"spiffe://${data.google_project.project.name}.svc.id.goog/ns/\") )"
+    }
+  }
+
+  predefined_values {
+    ca_options {
+      is_ca = false
+    }
+    key_usage {
+      base_key_usage {
+        digital_signature = true
+        key_encipherment  = true
+      }
+      extended_key_usage {
+        server_auth = true
+        client_auth = true
+      }
+    }
+  }
 }
